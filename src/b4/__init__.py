@@ -144,7 +144,7 @@ DEFAULT_CONFIG = {
     'thanks-pr-template': None,
     # See thanks-am-template.example
     'thanks-am-template': None,
-    # If this is not set, we'll use what we find in 
+    # If this is not set, we'll use what we find in
     # git-config for gpg.program, and if that's not set,
     # we'll use "gpg" and hope for the better
     'gpgbin': None,
@@ -2497,6 +2497,7 @@ class LoreSubject:
 
     def get_rebuilt_subject(self, eprefixes: Optional[List[str]] = None) -> str:
         exclude = None
+        has_revision = False
         if eprefixes and 'PATCH' in eprefixes:
             exclude = ['patch']
         _pfx = self.get_extra_prefixes(exclude=exclude)
@@ -2508,11 +2509,18 @@ class LoreSubject:
             _pfx.insert(0, 'PATCH')
         if self.revision > 1:
             _pfx.append(f'v{self.revision}')
+            has_revision = True
         if self.expected > 1:
             _pfx.append('%s/%s' % (str(self.counter).zfill(len(str(self.expected))), self.expected))
 
         if len(_pfx):
-            return '[' + ' '.join(_pfx) + '] ' + self.subject
+            config = get_main_config()
+            sep = config.get('send-prefixes-separator') or ']['
+            pfx = sep.join(_pfx)
+            # We keep "PATCH" and "vX" space-separated, and separate the rest using sep
+            if has_revision and len(_pfx) > 2:
+                pfx = sep.join(_pfx[:-1]) + ' ' + _pfx[-1]
+            return '[' + pfx + '] ' + self.subject
         else:
             return f'[PATCH] {self.subject}'
 
