@@ -124,6 +124,39 @@ def get_base_commit(
     return base_commit
 
 
+def add_notes(topdir, lser, patches, starting_ref: str = 'HEAD'):
+    """
+    Add git notes to the list of just-applied patches using the 'git notes add'
+    command.
+    """
+    for i in range(len(patches) - 1, -1, -1):
+        ref = f'{starting_ref}~{i}'
+        _, commit_subject = b4.git_run_command(
+            topdir, ['show', '--quiet', '--format=format:%s', ref],
+            logstderr=True, rundir=topdir
+        )
+        for patch in patches:
+            if not patch.has_diff:
+                continue
+
+            if patch.subject != commit_subject:
+                continue
+
+            notes = []
+            # Add a message id link to the note
+            if link := b4.LoreSeries.get_link_trailer(patch.msgid).as_string():
+                notes.append(link)
+            if not notes:
+                continue
+
+            ecode, _ = b4.git_run_command(
+                topdir, ['notes', 'add', ref, '--message', "\n".join(["b4 notes:"] + notes)],
+                rundir=topdir
+            )
+            if ecode == 0:
+                logger.info("Added note for '%s'", patch.subject)
+
+
 def make_am(msgs: List[EmailMessage], cmdargs: argparse.Namespace, msgid: str) -> None:
     config = b4.get_main_config()
     outdir = cmdargs.outdir
@@ -433,6 +466,10 @@ def make_am(msgs: List[EmailMessage], cmdargs: argparse.Namespace, msgid: str) -
             )
             logger.info(out.strip())
             if ecode == 0:
+                if cmdargs.add_notes and lser:
+                    # single patches begin with a None
+                    patches = [p for p in lser.patches if p is not None]
+                    add_notes(topdir, lser, patches)
                 thanks_record_am(lser, cherrypick=cherrypick)
             sys.exit(ecode)
 
