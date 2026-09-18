@@ -492,6 +492,12 @@ def setup_parser() -> argparse.ArgumentParser:
         default=False,
         help='(use with -H or -M) Enable conflict resolution if patches fail to apply',
     )
+    sp_sh.add_argument(
+        '--add-notes',
+        action='store_true',
+        default=False,
+        help="Add git notes with patch info to commits after applying",
+    )
     sp_sh.set_defaults(func=cmd_shazam)
 
     # b4 review

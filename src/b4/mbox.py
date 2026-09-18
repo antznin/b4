@@ -433,6 +433,18 @@ def make_am(msgs: List[EmailMessage], cmdargs: argparse.Namespace, msgid: str) -
             )
             logger.info(out.strip())
             if ecode == 0:
+                if cmdargs.add_notes:
+                    # single patches begin with a None
+                    patches = reversed([p for p in lser.patches if p is not None])
+                    for num, patch in enumerate(patches):
+                        if patch.has_diff:
+                            linknote = lser.get_link_trailer(patch.msgid).as_string()
+                            ecode, out = b4.git_run_command(
+                                topdir, ['notes', 'add', f'HEAD~{num}', '--message', linknote],
+                                logstderr=True, rundir=topdir
+                            )
+                            if ecode == 0:
+                                logger.info("Added note for '%s'", patch.subject)
                 thanks_record_am(lser, cherrypick=cherrypick)
             sys.exit(ecode)
 
