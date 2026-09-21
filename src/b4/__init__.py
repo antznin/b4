@@ -1092,6 +1092,35 @@ class LoreSeries:
         if self.patches[0] and self.patches[0].followup_trailers:
             self.add_extra_trailers(self.patches[0].followup_trailers)
 
+    @staticmethod
+    def get_link_trailer(msgid: str) -> Optional['LoreTrailer']:
+        linktrailer = None
+        config = get_main_config()
+        ltrmask = config.get('linktrailermask')
+        if ltrmask and isinstance(ltrmask, str):
+            if ltrmask.find(':'):
+                lparts = ltrmask.split(':', maxsplit=1)
+                llname = lparts[0].strip()
+                llval = lparts[1].strip() % msgid
+                linktrailer = LoreTrailer(name=llname, value=llval)
+            else:
+                logger.critical(
+                    'linktrailermask does not look like a valid trailer, using defaults'
+                )
+
+        if not linktrailer:
+            defmask = LOREADDR + '/r/%s'
+            cfg_llval = config.get('linkmask', defmask)
+            if isinstance(cfg_llval, str) and '%s' in cfg_llval:
+                linktrailer = LoreTrailer(name='Link', value=cfg_llval % msgid)
+            else:
+                logger.critical(
+                    'linkmask does not look like a valid mask, using defaults'
+                )
+                linktrailer = LoreTrailer(name='Link', value=defmask % msgid)
+
+        return linktrailer
+
     def get_am_ready(
         self,
         noaddtrailers: bool = False,
@@ -1206,35 +1235,9 @@ class LoreSeries:
             if lmsg is not None:
                 extras = list()
                 if addlink:
-                    linktrailer = None
-                    ltrmask = config.get('linktrailermask')
-                    if ltrmask and isinstance(ltrmask, str):
-                        if ltrmask.find(':'):
-                            lparts = ltrmask.split(':', maxsplit=1)
-                            llname = lparts[0].strip()
-                            llval = lparts[1].strip() % lmsg.msgid
-                            linktrailer = LoreTrailer(name=llname, value=llval)
-                        else:
-                            logger.critical(
-                                'linktrailermask does not look like a valid trailer, using defaults'
-                            )
-
-                    if not linktrailer:
-                        defmask = LOREADDR + '/r/%s'
-                        cfg_llval = config.get('linkmask', defmask)
-                        if isinstance(cfg_llval, str) and '%s' in cfg_llval:
-                            linktrailer = LoreTrailer(
-                                name='Link', value=cfg_llval % lmsg.msgid
-                            )
-                        else:
-                            logger.critical(
-                                'linkmask does not look like a valid mask, using defaults'
-                            )
-                            linktrailer = LoreTrailer(
-                                name='Link', value=defmask % lmsg.msgid
-                            )
-
-                    extras.append(linktrailer)
+                    linktrailer = LoreSeries.get_link_trailer(lmsg.msgid)
+                    if linktrailer:
+                        extras.append(linktrailer)
 
                 if attsame and not attcrit:
                     if attmark:
